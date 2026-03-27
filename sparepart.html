@@ -1,0 +1,262 @@
+<!-- generated HTML -->
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LSP | Integrated Asset Management - Cloud Sync</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&family=JetBrains+Mono:wght@400;700&display=swap');
+        :root { --lsp-navy: #002B5B; --lsp-blue: #004C91; --lsp-accent: #00AEEF; --industrial-bg: #F1F5F9; }
+        body { background-color: var(--industrial-bg); font-family: 'Inter', sans-serif; color: #1E293B; }
+        .bg-lsp-navy { background-color: var(--lsp-navy); }
+        .bg-lsp-blue { background-color: var(--lsp-blue); }
+        .text-lsp-accent { color: var(--lsp-accent); }
+        .filter-container { background: rgba(0, 0, 0, 0.25); border: 1px solid rgba(255, 255, 255, 0.1); }
+        .lsp-input { background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2); color: white; font-size: 12px; }
+        .lsp-input:focus { background: white; color: var(--lsp-navy); outline: none; border-color: var(--lsp-accent); }
+        .asset-card { background: white; border-radius: 10px; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); border: 1px solid #e2e8f0; cursor: pointer; position: relative; overflow: hidden; }
+        .asset-card:hover { transform: translateY(-5px); border-color: var(--lsp-accent); box-shadow: 0 15px 30px rgba(0,0,0,0.1); }
+        .staff-card { background: white; border-radius: 12px; border: 1px solid #e2e8f0; transition: 0.2s; }
+        .staff-card:hover { border-color: var(--lsp-accent); box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        #productModal.hidden { display: none; }
+        #productModal.flex { display: flex; animation: fadeIn 0.2s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header class="bg-lsp-navy text-white sticky top-0 z-50 shadow-2xl border-b-4 border-lsp-blue">
+        <div class="container mx-auto px-4 py-4">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+                <div class="flex items-center space-x-4">
+                    <div class="bg-white p-2 rounded shadow-lg"><i class="fa-solid fa-industry text-3xl text-[#002B5B]"></i></div>
+                    <div>
+                        <h1 class="text-xl font-black tracking-tighter uppercase leading-none">LSP Petrochemicals</h1>
+                        <p class="text-[10px] text-lsp-accent font-bold tracking-[0.3em] italic uppercase mt-1">Warehouse Technical Support</p>
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-3">
+                    <div class="hidden md:flex flex-col text-right mr-4">
+                        <span id="syncStatus" class="text-[9px] font-black text-green-400 animate-pulse uppercase tracking-widest">System Online</span>
+                        <span id="resultCount" class="text-xs font-mono font-bold text-white/50">0 ASSETS ONLINE</span>
+                    </div>
+                    <button onclick="fetchCloudData()" class="bg-lsp-blue hover:bg-lsp-accent text-white px-4 py-2 rounded font-black text-[10px] uppercase shadow-lg transition flex items-center">
+                        <i class="fa-solid fa-cloud-arrow-down mr-2"></i> Sync Cloud
+                    </button>
+                    <label for="excelUpload" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-black text-[10px] cursor-pointer uppercase transition">
+                        <i class="fa-solid fa-file-excel mr-1"></i> Admin Upload
+                    </label>
+                    <input type="file" id="excelUpload" class="hidden" accept=".xlsx, .xls">
+                    <button id="clearBtn" class="bg-red-500/20 hover:bg-red-600 text-red-400 p-2 rounded transition"><i class="fa-solid fa-trash-can"></i></button>
+                </div>
+            </div>
+
+            <!-- FILTERS -->
+            <div class="mt-6 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 filter-container p-4 rounded-xl">
+                <div class="relative">
+                    <label class="text-[8px] font-black text-lsp-accent uppercase tracking-widest absolute -top-2 left-2 bg-lsp-navy px-1">Category</label>
+                    <select id="fCat" onchange="runFilters()" class="lsp-input w-full px-3 py-3 rounded-lg bg-[#002B5B] font-bold">
+                        <option value="">All Categories</option>
+                        <option value="Mechanical">Mechanical (JJ06)</option>
+                        <option value="Electrical">Electrical (JJ03)</option>
+                        <option value="Instrument">Instrument (JJ07)</option>
+                    </select>
+                </div>
+                <input type="text" id="f1" placeholder="Search SKU..." class="lsp-input w-full px-3 py-3 rounded-lg">
+                <input type="text" id="f2" placeholder="Description..." class="lsp-input w-full px-3 py-3 rounded-lg lg:col-span-1">
+                <input type="text" id="fLoc" placeholder="Location..." class="lsp-input w-full px-3 py-3 rounded-lg">
+                <input type="number" id="fStock" placeholder="Min Stock" class="lsp-input w-full px-3 py-3 rounded-lg">
+                <button onclick="clearAllFilters()" class="bg-white/5 hover:bg-white/10 text-white/50 rounded-lg text-[10px] font-black uppercase transition border border-white/5">Reset Filters</button>
+            </div>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4 py-10">
+        
+        <!-- STAFF DIRECTORY [1] -->
+        <section class="mb-12">
+            <div class="flex items-center space-x-3 mb-6">
+                <div class="w-1.5 h-6 bg-lsp-accent rounded-full"></div>
+                <h3 class="text-[11px] font-black text-slate-400 uppercase tracking-[0.3em]">Support Personnel</h3>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                <!-- Member Cards from source [1] -->
+                <div class="staff-card p-4 flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-black text-[10px]">NKH</div>
+                    <div><h4 class="text-[10px] font-black text-lsp-navy uppercase">Nguyễn Khắc Hoan</h4><p class="text-[8px] text-slate-400">0834 159 128</p></div>
+                </div>
+                <div class="staff-card p-4 flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-pink-50 rounded-full flex items-center justify-center text-pink-300 font-black text-[10px]">NVDH</div>
+                    <div><h4 class="text-[10px] font-black text-lsp-navy uppercase leading-none">Nguyễn Vũ Diệu Huyền</h4><p class="text-[8px] text-slate-400">0946 300 465</p></div>
+                </div>
+                <div class="staff-card p-4 flex items-center space-x-3 border-t-2 border-lsp-accent">
+                    <img src="thuan.jpg" onerror="this.src='https://via.placeholder.com/60?text=NVT'" class="w-10 h-10 rounded-full ring-2 ring-blue-50">
+                    <div><h4 class="text-[10px] font-black text-lsp-navy uppercase leading-none">Nguyễn Văn Thuận</h4><p class="text-[8px] text-slate-400">0792 200 295</p></div>
+                </div>
+                <div class="staff-card p-4 flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-black text-[10px]">PVT</div>
+                    <div><h4 class="text-[10px] font-black text-lsp-navy uppercase">Phan Văn Thịnh</h4><p class="text-[8px] text-slate-400">thinhpv@lsp.com</p></div>
+                </div>
+                <div class="staff-card p-4 flex items-center space-x-3">
+                    <div class="w-10 h-10 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-black text-[10px]">PVM</div>
+                    <div><h4 class="text-[10px] font-black text-lsp-navy uppercase">Phan Văn Mới</h4><p class="text-[8px] text-slate-400">moipv@lsp.com</p></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Product Grid -->
+        <div id="productGrid" class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-6"></div>
+        <div id="scrollLoader" class="hidden py-10 flex justify-center"><div class="w-8 h-8 border-4 border-slate-200 border-t-lsp-accent rounded-full animate-spin"></div></div>
+    </main>
+
+    <!-- Detailed Modal (Khắc phục lỗi không hiện thông tin chi tiết) -->
+    <div id="productModal" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4">
+        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden relative flex flex-col md:flex-row max-h-[90vh]">
+            <button onclick="closeModal()" class="absolute top-4 right-4 text-slate-400 hover:text-red-500 text-3xl z-10 transition"><i class="fa-solid fa-circle-xmark"></i></button>
+            <div class="md:w-5/12 p-8 bg-slate-50 flex items-center justify-center border-r">
+                <img src="" id="mainModalImg" class="max-w-full max-h-80 object-contain drop-shadow-xl">
+            </div>
+            <div class="md:w-7/12 p-10 flex flex-col overflow-y-auto">
+                <div id="modalSKU" class="text-[9px] font-mono font-bold text-lsp-accent bg-lsp-navy/5 px-2 py-1 rounded mb-4 inline-block w-max"></div>
+                <h2 id="modalTitle" class="text-2xl font-black text-slate-800 mb-6 uppercase tracking-tighter"></h2>
+                <div class="grid grid-cols-2 gap-4 mb-8">
+                    <div class="p-5 bg-slate-900 rounded-xl text-white"><p class="text-[9px] uppercase font-black text-white/40 mb-1">Inv. Stock</p><p id="modalQuantity" class="text-3xl font-mono font-bold text-green-400"></p></div>
+                    <div class="p-5 bg-white border border-slate-100 rounded-xl shadow-inner"><p class="text-[9px] uppercase font-black text-slate-300 mb-1">Base Unit</p><p id="modalUnit" class="text-3xl font-mono font-bold text-lsp-navy uppercase"></p></div>
+                </div>
+                <div class="border-t pt-6"><h4 class="text-[10px] font-black text-slate-400 mb-3 uppercase tracking-widest italic">Technical Specs</h4><p id="modalDescription" class="text-xs text-slate-600 leading-relaxed font-mono italic whitespace-pre-wrap bg-slate-50 p-6 rounded-lg border-l-4 border-lsp-blue"></p></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DÁN LINK CSV TỪ GOOGLE SHEETS VÀO ĐÂY ĐỂ MỌI NGƯỜI CÙNG XEM ĐƯỢC
+        const REMOTE_CSV_URL = ""; 
+
+        const DB_NAME = "LSP_AssetDB_Global_V1";
+        const STORE_NAME = "inventory";
+        let db, productsData = [], filteredData = [], currentIndex = 0;
+
+        function getAutoCategory(sku) {
+            if (!sku) return "General";
+            const s = String(sku).trim().toUpperCase();
+            if (s.includes("JJ06")) return "Mechanical";
+            if (s.includes("JJ03")) return "Electrical";
+            if (s.includes("JJ07")) return "Instrument";
+            return "General";
+        }
+
+        function fixImageUrl(url) {
+            if (!url) return 'https://via.placeholder.com/400/FFFFFF/002B5B?text=LSP_ASSET';
+            let f = String(url).trim();
+            if (f.includes('github.com') && f.includes('/blob/')) f = f.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/');
+            return f;
+        }
+
+        const request = indexedDB.open(DB_NAME, 1);
+        request.onupgradeneeded = (e) => { db = e.target.result; db.createObjectStore(STORE_NAME, { keyPath: "id", autoIncrement: true }); };
+        request.onsuccess = (e) => { db = e.target.result; loadFromDB(); if(REMOTE_CSV_URL) fetchCloudData(); };
+
+        async function fetchCloudData() {
+            try {
+                const response = await fetch(REMOTE_CSV_URL);
+                const csvData = await response.text();
+                Papa.parse(csvData, {
+                    header: true,
+                    complete: (results) => saveToDB(results.data)
+                });
+            } catch (err) { console.error("Cloud Sync Failed", err); }
+        }
+
+        function saveToDB(data) {
+            const trans = db.transaction([STORE_NAME], "readwrite");
+            const store = trans.objectStore(STORE_NAME);
+            store.clear().onsuccess = () => data.forEach(item => { if(item.SKU || item.Title) store.add(item); });
+            trans.oncomplete = () => loadFromDB();
+        }
+
+        function loadFromDB() {
+            const store = db.transaction([STORE_NAME], "readonly").objectStore(STORE_NAME);
+            const getAll = store.getAll();
+            getAll.onsuccess = () => {
+                productsData = getAll.result.map(item => ({ ...item, Category: getAutoCategory(item.SKU) }));
+                filteredData = [...productsData];
+                resetView();
+            };
+        }
+
+        document.getElementById('excelUpload').onchange = (e) => {
+            const file = e.target.files[0]; if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const workbook = XLSX.read(new Uint8Array(event.target.result), { type: 'array' });
+                const json = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+                saveToDB(json);
+            };
+            reader.readAsArrayBuffer(file);
+        };
+
+        function resetView() {
+            currentIndex = 0; document.getElementById('productGrid').innerHTML = '';
+            document.getElementById('resultCount').innerText = filteredData.length.toLocaleString() + " ASSETS ONLINE";
+            renderBatch();
+        }
+
+        function renderBatch() {
+            const grid = document.getElementById('productGrid');
+            const batch = filteredData.slice(currentIndex, currentIndex + 30);
+            batch.forEach((p, i) => {
+                const absIdx = currentIndex + i;
+                const card = document.createElement('div');
+                card.className = "asset-card p-4 flex flex-col";
+                card.innerHTML = `
+                    <div class="h-32 flex items-center justify-center bg-white mb-3 rounded overflow-hidden shadow-inner">
+                        <img src="${fixImageUrl(p.Image_URLs ? String(p.Image_URLs).split(',')[0] : null)}" class="max-w-full max-h-full object-contain">
+                    </div>
+                    <div class="flex-1 pt-2 border-t border-slate-50">
+                        <p class="text-[8px] font-mono text-slate-300 font-bold mb-1 uppercase tracking-tighter">ID: ${p.SKU || 'N/A'}</p>
+                        <h3 class="text-[10px] text-slate-700 font-black uppercase line-clamp-2 h-6 leading-none mb-4 tracking-tighter">${p.Title || 'UNKNOWN'}</h3>
+                        <div class="flex justify-between items-center text-[10px] font-mono font-bold">
+                            <span class="text-slate-400 italic">${p.Unit || 'EA'}</span>
+                            <span class="${p.Quantity > 0 ? 'text-emerald-600' : 'text-red-400'}">STOCK: ${p.Quantity || 0}</span>
+                        </div>
+                    </div>
+                `;
+                card.onclick = () => openModal(absIdx);
+                grid.appendChild(card);
+            });
+            currentIndex += 30;
+        }
+
+        function openModal(idx) {
+            const p = filteredData[idx]; if (!p) return;
+            document.getElementById('modalTitle').innerText = p.Title || 'UNKNOWN';
+            document.getElementById('modalSKU').innerText = "LSP PART ID: " + (p.SKU || 'N/A');
+            document.getElementById('modalQuantity').innerText = (p.Quantity || 0).toLocaleString();
+            document.getElementById('modalUnit').innerText = p.Unit || 'EA';
+            document.getElementById('modalDescription').innerText = p.Detailed_Description || 'No technical data found.';
+            document.getElementById('mainModalImg').src = fixImageUrl(p.Image_URLs ? String(p.Image_URLs).split(',')[0] : null);
+            document.getElementById('productModal').classList.replace('hidden', 'flex');
+        }
+
+        function closeModal() { document.getElementById('productModal').classList.replace('flex', 'hidden'); }
+
+        function runFilters() {
+            const fCat = document.getElementById('fCat').value, f1 = document.getElementById('f1').value.toLowerCase().trim();
+            filteredData = productsData.filter(p => {
+                const combined = [p.Title, p.SKU].join(' ').toLowerCase();
+                return (!fCat || p.Category === fCat) && (!f1 || combined.includes(f1));
+            });
+            resetView();
+        }
+        document.getElementById('f1').oninput = runFilters;
+        function clearAllFilters() { document.getElementById('f1').value = ''; document.getElementById('fCat').value = ''; runFilters(); }
+    </script>
+</body>
+</html>
